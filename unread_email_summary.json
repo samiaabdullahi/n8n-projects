@@ -1,0 +1,127 @@
+{
+  "name": "unread email summary",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "daily-email-summary",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        40
+      ],
+      "id": "3cefd214-3fcf-475b-8075-af5ddb128a80",
+      "name": "Webhook",
+      "webhookId": "82c673d4-9c5e-49ab-857b-dfeba465218d"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        60,
+        -40
+      ],
+      "id": "b4038d96-0aac-43d2-97f3-1a1396568c9d",
+      "name": "Gmail",
+      "webhookId": "113e25dd-7bbf-4e62-9779-2ba291168231",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "K74SnF7HcrYW50ve",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let summary = \"📬 Unread Email Summary:\\n\\n\";\n\nitems.forEach((item, index) => {\n  const from = item.json?.From || \"Unknown\";\n  const subject = item.json?.Subject || \"No Subject\";\n  const snippet = item.json?.snippet || \"No preview available\";\n\n  summary += `${index + 1}. 📧 From: ${from}\\n   📝 Subject: ${subject}\\n   📄 Snippet: ${snippet}\\n\\n`;\n});\n\nreturn [{ json: { summary } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        20
+      ],
+      "id": "8eae8dd9-c198-42de-b018-1c8cdcd63154",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "sendTo": "samiaabdullahi543@gmail.com",
+        "subject": "summary",
+        "emailType": "text",
+        "message": "={{ $json.summary }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        440,
+        -20
+      ],
+      "id": "905d9580-4d06-445b-8c8e-fc4a4e27a042",
+      "name": "Gmail1",
+      "webhookId": "88829582-0a5c-40ec-8bf7-dfb2386e81fe",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "K74SnF7HcrYW50ve",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Gmail1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "64c2ec00-42ca-4f2a-87bd-be62c44539e1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "92a949264b715ac64d051fbf9770dcaae8631b7ca087939d4c0c657135e04c9f"
+  },
+  "id": "7RDjeMIS2Vt3MFTU",
+  "tags": []
+}
