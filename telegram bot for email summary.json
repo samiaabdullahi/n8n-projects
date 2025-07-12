@@ -1,0 +1,197 @@
+{
+  "name": "telegram bot for email summary",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Initialize variables\nconst MAX_LENGTH = 4000; // More conservative limit\nlet fullSummary = \"📬 *Unread Email Digest* 📬\\n\\n\";\nlet emailIds = [];\nlet importantCount = 0;\nlet starredCount = 0;\n\n// Process each email\nitems.forEach((item, index) => {\n  const from = item.json?.From?.replace(/<[^>]+>/g, '').trim() || \"Unknown\";\n  const subject = item.json?.Subject || \"No Subject\";\n  const snippet = item.json?.snippet?.substring(0, 100) || \"No preview\";\n  const isImportant = item.json?.labelIds?.includes('IMPORTANT');\n  const isStarred = item.json?.labelIds?.includes('STARRED');\n  \n  // Build the full summary\n  fullSummary += `\n✉️ *${index + 1}. ${subject}*\n   👤 From: ${from}\n   📄 ${snippet}${isStarred ? ' ⭐' : ''}${isImportant ? ' ❗' : ''}\n  `;\n\n  if (item.json?.id) emailIds.push(item.json.id);\n  if (isImportant) importantCount++;\n  if (isStarred) starredCount++;\n});\n\n// Add footer\nfullSummary += `\\n📊 *Stats:* ${items.length} total • ${importantCount} important • ${starredCount} starred`;\n\n// Return single message with all data\nreturn [{\n  json: {\n    fullSummary, // Now contains complete digest\n    emailIds,   // All email IDs in one array\n    stats: {\n      total: items.length,\n      important: importantCount,\n      starred: starredCount\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -360,
+        -120
+      ],
+      "id": "2665ff63-f162-421e-9592-0c19b4afe7cc",
+      "name": "Format Email Digest"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process email IDs from ALL messages\nconst allIds = [];\n\n// First check if we have direct ID array (from previous node)\nif (Array.isArray($input.all()[0]?.json?.emailIds)) {\n  allIds.push(...$input.all()[0].json.emailIds);\n} \n// Otherwise collect IDs from individual items\nelse {\n  $input.all().forEach(item => {\n    if (item.json?.id) {\n      allIds.push(item.json.id);\n    }\n  });\n}\n\n// Return individual ID objects\nif (allIds.length > 0) {\n  return allIds.map(id => ({ json: { id } }));\n} else {\n  // Ensure we always return valid data\n  return [{ json: { notice: \"No email IDs found to mark as read\" } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -140,
+        -120
+      ],
+      "id": "ca2b8a86-be16-45b2-9769-566af779aa5c",
+      "name": "Collect Email IDs"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        -120
+      ],
+      "id": "b4faed03-940e-4465-bf91-f6d936da6b84",
+      "name": "Telegram Trigger",
+      "webhookId": "068547e4-c128-45a4-a2a3-55bb5f1ddcb5",
+      "credentials": {
+        "telegramApi": {
+          "id": "BasC19J6e8qokeq0",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 20,
+        "filters": {
+          "labelIds": [
+            "CATEGORY_PERSONAL",
+            "IMPORTANT"
+          ],
+          "readStatus": "unread"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -580,
+        -120
+      ],
+      "id": "1d8f4754-8393-4f77-9d49-5831077c8fb4",
+      "name": "Get Unread Emails",
+      "webhookId": "113e25dd-7bbf-4e62-9779-2ba291168231",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "g0fgj4k1Sn9RSn5a",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $json.id }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        80,
+        -120
+      ],
+      "id": "a8329062-48d9-48d0-aada-67f57c158f32",
+      "name": "Mark as Read",
+      "webhookId": "11424746-582a-428b-a3f7-44dcac7031f8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "g0fgj4k1Sn9RSn5a",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1851544510",
+        "text": "={{ $('Format Email Digest').item.json.fullSummary }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        300,
+        -120
+      ],
+      "id": "866f09b6-d74b-41bd-af6b-1f0c06802e6b",
+      "name": "Send to Telegram",
+      "webhookId": "ef124eec-a6d7-40da-945a-1eaeb2d73c52",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "BasC19J6e8qokeq0",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Format Email Digest": {
+      "main": [
+        [
+          {
+            "node": "Collect Email IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Email IDs": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Unread Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Unread Emails": {
+      "main": [
+        [
+          {
+            "node": "Format Email Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Read": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f2be2f5a-e737-4fec-999a-a04133ae1226",
+  "meta": {
+    "instanceId": "ede03d5865418ff2f60274f897b290526bfa4ed7a47f29c014bb8e703349dc96"
+  },
+  "id": "TWQglg8LS0Ybvjuw",
+  "tags": []
+}
