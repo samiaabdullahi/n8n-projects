@@ -1,0 +1,354 @@
+{
+  "name": "Email Triage Assistant with ChatGPT",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1040,
+        20
+      ],
+      "id": "68df0986-02b3-42e4-b2a5-6e2ffcbe0a1d",
+      "name": "Telegram Trigger",
+      "webhookId": "1c009c26-ce83-4681-a6b1-2f351c84facd",
+      "credentials": {
+        "telegramApi": {
+          "id": "BasC19J6e8qokeq0",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 50,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -560,
+        60
+      ],
+      "id": "3ce46384-2214-438e-8854-8f5cc2ad4615",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-3.5-turbo",
+          "mode": "list",
+          "cachedResultName": "GPT-3.5-TURBO"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are an email‑triage assistant.\n\nFor the email shown below, do ALL of the following:\n\n1. Classify it into exactly one of these categories (all lowercase):\n   • work  \n   • personal  \n   • promotions  \n   • spam  \n\n2. Produce a **concise summary** (4 – 6 plain‑English sentences) that captures the main purpose or takeaway of the email. Do not copy large blocks of the original text. \n\n3. Return ONLY valid JSON with these exact lowercase keys — nothing else before or after the JSON block:\n\n{\n  \"from\":     \"<sender name and address exactly as shown>\",\n  \"subject\":  \"<subject line exactly as shown>\",\n  \"content\":  \"<short snippet or first 20‐30 words of body, no line‑breaks>\",\n  \"category\": \"<work | personal | promotions | spam>\",\n  \"summary\":  \"<your 2‑3 sentence summary>\"\n}",
+              "role": "system"
+            },
+            {
+              "content": "=From: {{ $json.From }}\nSubject: {{ $json.Subject }}\nSnippet: {{ $json.snippet || \"No preview\" }}\n"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -360,
+        -140
+      ],
+      "id": "47eb3d25-d5a8-4b2a-a73b-3c77a44345e5",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "cJ9xjVUCaV4vUWgy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const { json } of items) {\n  let content = json?.message?.content;\n\n  if (!content) {\n    throw new Error('Missing message.content');\n  }\n\n  // If already an object, no need to parse\n  if (typeof content === 'object') {\n    content = JSON.stringify(content);\n  }\n\n  content = String(content).trim();\n  content = content.replace(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/i, '$1').trim();\n\n  const firstBrace = content.indexOf('{');\n  const lastBrace = content.lastIndexOf('}');\n\n  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {\n    throw new Error('No JSON object found in content: ' + $input.first().json.message.content.content);\n  }\n\n  const jsonText = content.slice(firstBrace, lastBrace + 1);\n\n  let parsed;\n  try {\n    parsed = JSON.parse(jsonText);\n  } catch (err) {\n    throw new Error('Could not parse JSON: ' + err.message + '\\nSource:\\n' + jsonText);\n  }\n\n  // Ensure required fields exist\n  if (!parsed.category || !parsed.summary) {\n    console.warn('Parsed JSON missing required keys:', parsed);\n    continue;\n  }\n\n  results.push({\n    json: {\n      category: parsed.category,\n      summary: parsed.summary,\n      from: parsed.from || parsed.From || \"Unknown\",\n      subject: parsed.subject || parsed.Subject || \"No Subject\"\n    }\n  });\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        100
+      ],
+      "id": "03a6bf3f-cdc9-49df-abaa-13c65ed226dc",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "chatId": "1851544510",
+        "text": "={{ $json.text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        420,
+        -120
+      ],
+      "id": "c530830c-afae-49f6-b252-6ae34b1e2650",
+      "name": "Send a text message",
+      "webhookId": "752375cc-83ad-4471-9930-f094e503c762",
+      "credentials": {
+        "telegramApi": {
+          "id": "BasC19J6e8qokeq0",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "88d2b12d-5895-4a0d-bb6f-4ad7de3cd207",
+              "leftValue": "={{ $json.category }}",
+              "rightValue": "work",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "dc885998-776a-42af-ad3a-5e5866694d8e",
+              "leftValue": "={{ $json.category }}",
+              "rightValue": "personal",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        140,
+        -140
+      ],
+      "id": "73d49519-f828-4262-b5b0-a859694625e2",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -300,
+        240
+      ],
+      "id": "7ec9c282-3108-4899-8072-5e8b049be0d9",
+      "name": "Get a message",
+      "webhookId": "5ffb09c4-dad9-4348-9118-804226dd4bd6",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "g0fgj4k1Sn9RSn5a",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "UNREAD"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -260,
+        60
+      ],
+      "id": "61c77e78-ad16-41cf-b20f-ad7e3fe762b8",
+      "name": "Remove label from message",
+      "webhookId": "7de2b829-099a-48ab-86b1-7a4b5c816e8a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "g0fgj4k1Sn9RSn5a",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function  (NOT Function Item)\n// Combines all filtered‑true items into one Telegram‑friendly message\n\nconst maxLength = 4000;           // Telegram hard‑limit (adjust if you like)\n\nconst summaries = $input.all().map(item => {\n  const {\n    from     = 'Unknown',\n    subject  = 'No subject',\n    category = 'Uncategorized',\n    summary  = 'No summary'\n  } = item.json;\n\n  return `📧 *From:* ${from}\n📝 *Subject:* ${subject}\n📂 *Category:* ${category}\n🧾 *Summary:* ${summary}\n\n---`;\n}).join('\\n');                    // join every block with a line break\n\n// Truncate if the message is too long\nlet text = summaries;\nif (text.length > maxLength) {\n  text = text.slice(0, maxLength) +\n         '\\n\\n*Message truncated due to length.*';\n}\n\n// Return ONE item with a “text” field\nreturn [\n  {\n    json: { text }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        100
+      ],
+      "id": "3ece4b51-de77-47bf-873b-6ee99a9b9d20",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 10,
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -780,
+        20
+      ],
+      "id": "489d675e-656d-44af-b224-c3eb6ba11ffb",
+      "name": "Fetch new Unread Emails",
+      "webhookId": "dd4d4dd1-9efc-4012-b213-21df98805324",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "g0fgj4k1Sn9RSn5a",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch new Unread Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Remove label from message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a message": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch new Unread Emails": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5bb18ac3-2f56-413d-b746-5286d77d0433",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ede03d5865418ff2f60274f897b290526bfa4ed7a47f29c014bb8e703349dc96"
+  },
+  "id": "UBEwxieIVIQ09sHj",
+  "tags": []
+}
