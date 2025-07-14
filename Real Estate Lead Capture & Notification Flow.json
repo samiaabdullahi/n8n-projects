@@ -1,0 +1,243 @@
+{
+  "name": "Real Estate Lead Capture & Notification Flow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "newlead",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        -20
+      ],
+      "id": "ad0ea337-bd95-4ec9-b5c0-b01c8e47ca5f",
+      "name": "Receive New Lead Submission",
+      "webhookId": "ef31d061-3645-47f0-b4a2-37813500a3ca"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1HOqIJSPjcMJBeN4aNhYQXGEmtdvXX9XzTF2RImeY5Pk",
+          "mode": "list",
+          "cachedResultName": "Untitled spreadsheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HOqIJSPjcMJBeN4aNhYQXGEmtdvXX9XzTF2RImeY5Pk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HOqIJSPjcMJBeN4aNhYQXGEmtdvXX9XzTF2RImeY5Pk/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "full name": "={{ $json.body.data.fields[0].value }}",
+            "email": "={{ $json.body.data.fields[1].value }}",
+            "phone": "={{ $json.body.data.fields[2].value }}",
+            "type": "={{ $json.body.data.fields[3].options[1] }}",
+            "location": "={{ $json.body.data.fields[4].value }}",
+            "budget": "={{ $json.body.data.fields[7].value }}",
+            "describtion ": "={{ $json.body.data.fields[5].value }}",
+            "timestamp": "={{ $now }}"
+          },
+          "matchingColumns": [
+            "full name"
+          ],
+          "schema": [
+            {
+              "id": "full name",
+              "displayName": "full name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "budget",
+              "displayName": "budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "describtion ",
+              "displayName": "describtion ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -20,
+        -20
+      ],
+      "id": "eb7dbe28-94af-4e43-b771-1b67fa58f292",
+      "name": "Store Lead in Spreadsheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "3a5xwRJl2H6K5sv8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "We Received Your Property Request ",
+        "emailType": "text",
+        "message": "=Hi {{ $json['full name'] }}\nThanks for reaching out! we've received your request about your looking property in {{ $json.location }} .An agent will contact you soon with properties that match your budget {{ $json.budget }} \n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        240,
+        -20
+      ],
+      "id": "fe084325-97fb-4e3c-9383-6c63c00b819b",
+      "name": "Send Email to Lead",
+      "webhookId": "bfca0fd9-e1ff-4368-9f5d-70014d26a6f4",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "g0fgj4k1Sn9RSn5a",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1851544510",
+        "text": "=📥 New Property Lead!\n👤 Name:  {{ $('Store Lead in Spreadsheet').item.json['full name'] }}\n📞 Phone: {{ $('Store Lead in Spreadsheet').item.json.phone }}\n📧 Email: {{ $('Store Lead in Spreadsheet').item.json.email }}\n📍 Locati{{ $('Store Lead in Spreadsheet').item.json.location }}on:  \n💰 Budget: {{ $('Store Lead in Spreadsheet').item.json.budget }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        460,
+        -20
+      ],
+      "id": "2450ff62-08e2-47f4-b9b4-8aa70631fa0d",
+      "name": "Notify Agent via Telegram",
+      "webhookId": "41601282-48de-437a-9ede-85196f944ea7",
+      "credentials": {
+        "telegramApi": {
+          "id": "BasC19J6e8qokeq0",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive New Lead Submission": {
+      "main": [
+        [
+          {
+            "node": "Store Lead in Spreadsheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Lead in Spreadsheet": {
+      "main": [
+        [
+          {
+            "node": "Send Email to Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email to Lead": {
+      "main": [
+        [
+          {
+            "node": "Notify Agent via Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "42bfe859-32d5-4312-9776-1e93a010ff0b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ede03d5865418ff2f60274f897b290526bfa4ed7a47f29c014bb8e703349dc96"
+  },
+  "id": "p4tEA9OhKkfjXaTs",
+  "tags": []
+}
